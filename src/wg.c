@@ -31,6 +31,7 @@ static const struct {
 static void show_usage(FILE *file)
 {
 	fprintf(file, "Usage: %s <cmd> [<args>]\n\n", PROG_NAME);
+	fprintf(file, "Device type: %s\n", WG_GENL_NAME);
 	fprintf(file, "Available subcommands:\n");
 	for (size_t i = 0; i < sizeof(subcommands) / sizeof(subcommands[0]); ++i)
 		fprintf(file, "  %s: %s\n", subcommands[i].subcommand, subcommands[i].description);

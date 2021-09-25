@@ -5,6 +5,7 @@
 PKG_CONFIG ?= pkg-config
 PREFIX ?= /usr
 DESTDIR ?=
+DEV ?= wireguard
 SYSCONFDIR ?= /etc
 BINDIR ?= $(PREFIX)/bin
 LIBDIR ?= $(PREFIX)/lib
@@ -39,8 +40,9 @@ PLATFORM ?= $(shell uname -s | tr '[:upper:]' '[:lower:]')
 
 CFLAGS ?= -O3
 ifneq ($(wildcard uapi/$(PLATFORM)/.),)
-CFLAGS += -idirafter uapi/$(PLATFORM)
+CFLAGS += -Iuapi/$(PLATFORM)
 endif
+CFLAGS += -D"__STR(x)=\#x" -D"WG_GENL_NAME=__STR($(DEV))"
 CFLAGS += -std=gnu99 -D_GNU_SOURCE
 CFLAGS += -Wall -Wextra
 CFLAGS += -MMD -MP
@@ -97,6 +99,7 @@ install: wg
 	install -v -d "$(DESTDIR)$(BASHCOMPDIR)" && install -v -m 0644 completion/wg.bash-completion "$(DESTDIR)$(BASHCOMPDIR)/wg"
 	@[ "$(WITH_WGQUICK)" = "yes" ] || exit 0; \
 	install -v -m 0755 wg-quick/$(PLATFORM).bash "$(DESTDIR)$(BINDIR)/wg-quick" && install -v -m 0700 -d "$(DESTDIR)$(SYSCONFDIR)/wireguard"
+	sed -i -e "s/@WG_TYPE@/$(DEV)/g" -e "s~@INSTALL_DIR@~$(shell realpath $(DESTDIR)$(BINDIR))~g" $(DESTDIR)$(BINDIR)/wg-quick
 	@[ "$(WITH_WGQUICK)" = "yes" ] || exit 0; \
 	install -v -m 0644 man/wg-quick.8 "$(DESTDIR)$(MANDIR)/man8/wg-quick.8"
 	@[ "$(WITH_WGQUICK)" = "yes" -a "$(WITH_BASHCOMPLETION)" = "yes" ] || exit 0; \

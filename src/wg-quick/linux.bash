@@ -87,11 +87,9 @@ auto_su() {
 
 add_if() {
 	local ret
-	if ! cmd ip link add "$INTERFACE" type wireguard; then
+	if ! cmd ip link add "$INTERFACE" type @WG_TYPE@; then
 		ret=$?
-		[[ -e /sys/module/wireguard ]] || ! command -v "${WG_QUICK_USERSPACE_IMPLEMENTATION:-wireguard-go}" >/dev/null && exit $ret
-		echo "[!] Missing WireGuard kernel module. Falling back to slow userspace implementation." >&2
-		cmd "${WG_QUICK_USERSPACE_IMPLEMENTATION:-wireguard-go}" "$INTERFACE"
+		exit ret
 	fi
 }
 
@@ -99,7 +97,7 @@ del_if() {
 	local table
 	[[ $HAVE_SET_DNS -eq 0 ]] || unset_dns
 	[[ $HAVE_SET_FIREWALL -eq 0 ]] || remove_firewall
-	if [[ -z $TABLE || $TABLE == auto ]] && get_fwmark table && [[ $(wg show "$INTERFACE" allowed-ips) =~ /0(\ |$'\n'|$) ]]; then
+	if [[ -z $TABLE || $TABLE == auto ]] && get_fwmark table && [[ $(@INSTALL_DIR@/wg show "$INTERFACE" allowed-ips) =~ /0(\ |$'\n'|$) ]]; then
 		while [[ $(ip -4 rule show 2>/dev/null) == *"lookup $table"* ]]; do
 			cmd ip -4 rule delete table $table
 		done
@@ -132,7 +130,7 @@ set_mtu_up() {
 		[[ $endpoint =~ ^\[?([a-z0-9:.]+)\]?:[0-9]+$ ]] || continue
 		output="$(ip route get "${BASH_REMATCH[1]}" || true)"
 		[[ ( $output =~ mtu\ ([0-9]+) || ( $output =~ dev\ ([^ ]+) && $(ip link show dev "${BASH_REMATCH[1]}") =~ mtu\ ([0-9]+) ) ) && ${BASH_REMATCH[1]} -gt $mtu ]] && mtu="${BASH_REMATCH[1]}"
-	done < <(wg show "$INTERFACE" endpoints)
+	done < <(@INSTALL_DIR@/wg show "$INTERFACE" endpoints)
 	if [[ $mtu -eq 0 ]]; then
 		read -r output < <(ip route show default || true) || true
 		[[ ( $output =~ mtu\ ([0-9]+) || ( $output =~ dev\ ([^ ]+) && $(ip link show dev "${BASH_REMATCH[1]}") =~ mtu\ ([0-9]+) ) ) && ${BASH_REMATCH[1]} -gt $mtu ]] && mtu="${BASH_REMATCH[1]}"
@@ -180,7 +178,7 @@ add_route() {
 
 get_fwmark() {
 	local fwmark
-	fwmark="$(wg show "$INTERFACE" fwmark)" || return 1
+	fwmark="$(@INSTALL_DIR@/wg show "$INTERFACE" fwmark)" || return 1
 	[[ -n $fwmark && $fwmark != off ]] || return 1
 	printf -v "$1" "%d" "$fwmark"
 	return 0
@@ -216,7 +214,7 @@ add_default() {
 		while [[ -n $(ip -4 route show table $table 2>/dev/null) || -n $(ip -6 route show table $table 2>/dev/null) ]]; do
 			((table++))
 		done
-		cmd wg set "$INTERFACE" fwmark $table
+		cmd @INSTALL_DIR@/wg set "$INTERFACE" fwmark $table
 	fi
 	local proto=-4 iptables=iptables pf=ip
 	[[ $1 == *:* ]] && proto=-6 iptables=ip6tables pf=ip6
@@ -248,7 +246,7 @@ add_default() {
 }
 
 set_config() {
-	cmd wg setconf "$INTERFACE" <(echo "$WG_CONFIG")
+	cmd @INSTALL_DIR@/wg setconf "$INTERFACE" <(echo "$WG_CONFIG")
 }
 
 save_config() {
@@ -278,7 +276,7 @@ save_config() {
 	done
 	old_umask="$(umask)"
 	umask 077
-	current_config="$(cmd wg showconf "$INTERFACE")"
+	current_config="$(cmd @INSTALL_DIR@/wg showconf "$INTERFACE")"
 	trap 'rm -f "$CONFIG_FILE.tmp"; exit' INT TERM EXIT
 	echo "${current_config/\[Interface\]$'\n'/$new_config}" > "$CONFIG_FILE.tmp" || die "Could not write configuration file"
 	sync "$CONFIG_FILE.tmp"
@@ -335,7 +333,7 @@ cmd_up() {
 	done
 	set_mtu_up
 	set_dns
-	for i in $(while read -r _ i; do for i in $i; do [[ $i =~ ^[0-9a-z:.]+/[0-9]+$ ]] && echo "$i"; done; done < <(wg show "$INTERFACE" allowed-ips) | sort -nr -k 2 -t /); do
+	for i in $(while read -r _ i; do for i in $i; do [[ $i =~ ^[0-9a-z:.]+/[0-9]+$ ]] && echo "$i"; done; done < <(@INSTALL_DIR@/wg show "$INTERFACE" allowed-ips) | sort -nr -k 2 -t /); do
 		add_route "$i"
 	done
 	execute_hooks "${POST_UP[@]}"
@@ -343,7 +341,7 @@ cmd_up() {
 }
 
 cmd_down() {
-	[[ " $(wg show interfaces) " == *" $INTERFACE "* ]] || die "\`$INTERFACE' is not a WireGuard interface"
+	[[ " $(@INSTALL_DIR@/wg show interfaces) " == *" $INTERFACE "* ]] || die "\`$INTERFACE' is not a WireGuard interface"
 	execute_hooks "${PRE_DOWN[@]}"
 	[[ $SAVE_CONFIG -eq 0 ]] || save_config
 	del_if
@@ -353,7 +351,7 @@ cmd_down() {
 }
 
 cmd_save() {
-	[[ " $(wg show interfaces) " == *" $INTERFACE "* ]] || die "\`$INTERFACE' is not a WireGuard interface"
+	[[ " $(@INSTALL_DIR@/wg show interfaces) " == *" $INTERFACE "* ]] || die "\`$INTERFACE' is not a WireGuard interface"
 	save_config
 }
 
