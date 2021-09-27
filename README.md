@@ -1,18 +1,19 @@
-# Tools for configuring [WireGuard](https://www.wireguard.com/) with obfuscation support (wiregurad_obf)
+# Tools for configuring [notWG](https://github.com/el3xyz/wireguard-linux-compat).
 
-Obfuscated WireGurad protocol and device name is wireguard_obf. Protocol is incompatible with original WireGuard but both types of devices can co-exist on the same host.
+WARNING: notWG protocol is incompatible with WireGuard but both types of devices can co-exist on the same host.
 
 ## Building
 
     $ cd src
-    $ make DEV=wireguard_obf
+    $ make DEV=<name>
 
-Sandbox installation is recommended to not intermix tools for obfuscated and original WireGuard.
+Where `<name>` is the type of network device chosen during [driver](https://github.com/el3xyz/wireguard-linux-compat) compilation.
 
 ## Installing
+    # Sandbox installation is required to avoid conflicts between system WG tools and ours.
+    $ make DEV=<name> PREFIX=<sandbox_dir> WITH_SYSTEMDUNITS=no install
 
-    # make DEV=wireguard_obf PREFIX=<sandbox_dir> WITH_SYSTEMDUNITS=no install
-
+Where `<name>` should match the name provided during driver and tools compilation.
 Use <sandbox_dir>/bin/wg-quick and <sandbox_dir>/bin/wg for configuring obfuscated tunnel. 
 
 ## License
